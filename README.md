@@ -11,36 +11,6 @@ or your CI pipeline.
 
 ## Install
 
-### Homebrew (macOS / Linux)
-
-```sh
-brew install jetemail/cli/jetemail
-```
-
-### Shell installer (macOS / Linux)
-
-```sh
-curl -fsSL https://github.com/jetemail/jetemail-cli/releases/latest/download/jetemail-installer.sh | sh
-```
-
-### PowerShell installer (Windows)
-
-```powershell
-irm https://github.com/jetemail/jetemail-cli/releases/latest/download/jetemail-installer.ps1 | iex
-```
-
-Or download `jetemail-<version>-x86_64-pc-windows-msvc.exe` directly from
-[the latest release](https://github.com/jetemail/jetemail-cli/releases/latest)
-and place it anywhere on your `PATH` — no installer needed.
-
-### From source
-
-Requires Rust 1.74+ ([rustup.rs](https://rustup.rs)):
-
-```sh
-cargo install --git https://github.com/jetemail/jetemail-cli
-```
-
 ### Pre-built binaries
 
 Every release publishes both an archive (binary + `README` + `LICENSE-*`)
@@ -50,7 +20,6 @@ and a standalone binary you can download directly:
 |------------------------------------------------------|----------------------------------------------|
 | `jetemail-<ver>-x86_64-pc-windows-msvc.zip`          | `jetemail-<ver>-x86_64-pc-windows-msvc.exe`  |
 | `jetemail-<ver>-aarch64-apple-darwin.tar.gz`         | `jetemail-<ver>-aarch64-apple-darwin`        |
-| `jetemail-<ver>-x86_64-apple-darwin.tar.gz`          | `jetemail-<ver>-x86_64-apple-darwin`         |
 | `jetemail-<ver>-x86_64-unknown-linux-gnu.tar.gz`     | `jetemail-<ver>-x86_64-unknown-linux-gnu`    |
 | `jetemail-<ver>-aarch64-unknown-linux-gnu.tar.gz`    | `jetemail-<ver>-aarch64-unknown-linux-gnu`   |
 | `jetemail-<ver>-x86_64-unknown-linux-musl.tar.gz`    | `jetemail-<ver>-x86_64-unknown-linux-musl`   |
@@ -58,6 +27,14 @@ and a standalone binary you can download directly:
 Grab whichever you prefer from
 [the latest release](https://github.com/jetemail/jetemail-cli/releases/latest),
 rename to `jetemail` (or `jetemail.exe`), and put it on your `PATH`.
+
+### From source
+
+Requires Rust 1.74+ ([rustup.rs](https://rustup.rs)):
+
+```sh
+cargo install --git https://github.com/jetemail/jetemail-cli
+```
 
 ## Quickstart
 
