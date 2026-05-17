@@ -5,5 +5,6 @@ pub mod doctor;
 pub mod email;
 pub mod inbound;
 pub mod outbound;
+pub mod update;
 pub mod util;
 pub mod webhooks;

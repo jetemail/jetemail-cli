@@ -11,8 +11,7 @@ use crate::output::OutputOpts;
     name = "jetemail",
     version,
     about = "Command-line interface for the JetEmail API",
-    long_about = "Command-line interface for the JetEmail API (https://api.jetemail.com).\n\
-                  All 68 endpoints from the OpenAPI specification are supported."
+    long_about = "Command-line interface for the JetEmail API (https://api.jetemail.com)."
 )]
 pub struct Cli {
     /// API key for account-management endpoints (overrides env/config).
@@ -69,6 +68,8 @@ pub enum Command {
     Webhooks(commands::webhooks::Cmd),
     /// Manage the local config file directly.
     Config(commands::config_cmd::Cmd),
+    /// Update jetemail to the latest release (or report status with --check).
+    Update(commands::update::Cmd),
 }
 
 pub async fn run(cli: Cli) -> Result<()> {
@@ -84,6 +85,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Config(cmd) => return commands::config_cmd::run(cmd, out).await,
         Command::Completion(cmd) => return commands::completion::run(cmd),
         Command::Logout(args) => return commands::auth::logout(args, out),
+        Command::Update(cmd) => return commands::update::run(cmd, out).await,
         _ => {}
     }
 
@@ -108,6 +110,8 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Inbound(cmd) => commands::inbound::run(&client, &cmd, out).await,
         Command::Outbound(cmd) => commands::outbound::run(&client, &cmd, out).await,
         Command::Webhooks(cmd) => commands::webhooks::run(&client, &cmd, out).await,
-        Command::Config(_) | Command::Completion(_) | Command::Logout(_) => unreachable!(),
+        Command::Config(_) | Command::Completion(_) | Command::Logout(_) | Command::Update(_) => {
+            unreachable!()
+        }
     }
 }
