@@ -199,7 +199,7 @@ jobs:
             exit 0
           fi
           git commit -m "jetemail ${version}"
-          git push
+          git push origin HEAD:main
 
   cargo-publish:
     name: Publish to crates.io
