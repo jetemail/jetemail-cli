@@ -11,6 +11,12 @@ or your CI pipeline.
 
 ## Install
 
+### Homebrew (macOS / Linux)
+
+```sh
+brew install jetemail/cli/jetemail
+```
+
 ### Pre-built binaries
 
 Every release publishes both an archive (binary + `README` + `LICENSE-*`)
