@@ -133,6 +133,8 @@ jobs:
           generate_release_notes: true
           files: |
             dist/*
+            scripts/install.sh
+            scripts/install.ps1
 
   publish-brew:
     name: Publish Homebrew formula
@@ -199,6 +201,63 @@ jobs:
             exit 0
           fi
           git commit -m "jetemail ${version}"
+          git push origin HEAD:main
+
+  publish-scoop:
+    name: Publish Scoop manifest
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Render manifest and push to bucket
+        env:
+          GH_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          base="https://github.com/jetemail/jetemail-cli/releases/download/${TAG}"
+          win_zip="jetemail-${version}-x86_64-pc-windows-msvc.zip"
+
+          curl -fsSL -O "${base}/${win_zip}"
+          win_sha=$(sha256sum "${win_zip}" | awk '{print $1}')
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/jetemail/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          cat > bucket/bucket/jetemail-cli.json <<EOF
+          {
+            "version": "${version}",
+            "description": "Official CLI for JetEmail",
+            "homepage": "https://github.com/jetemail/jetemail-cli",
+            "license": "MIT OR Apache-2.0",
+            "architecture": {
+              "64bit": {
+                "url": "${base}/${win_zip}",
+                "hash": "${win_sha}",
+                "extract_dir": "jetemail-${version}-x86_64-pc-windows-msvc"
+              }
+            },
+            "bin": "jetemail.exe",
+            "checkver": "github",
+            "autoupdate": {
+              "architecture": {
+                "64bit": {
+                  "url": "https://github.com/jetemail/jetemail-cli/releases/download/v\$version/jetemail-\$version-x86_64-pc-windows-msvc.zip",
+                  "extract_dir": "jetemail-\$version-x86_64-pc-windows-msvc"
+                }
+              }
+            }
+          }
+          EOF
+
+          cd bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/jetemail-cli.json
+          if git diff --cached --quiet; then
+            echo "Manifest unchanged — nothing to commit."
+            exit 0
+          fi
+          git commit -m "jetemail-cli ${version}"
           git push origin HEAD:main
 
   cargo-publish:

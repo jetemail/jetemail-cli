@@ -17,6 +17,25 @@ or your CI pipeline.
 brew install jetemail/cli/jetemail
 ```
 
+### Shell installer (macOS / Linux)
+
+```sh
+curl -fsSL https://github.com/jetemail/jetemail-cli/releases/latest/download/install.sh | sh
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add jetemail https://github.com/jetemail/scoop-bucket
+scoop install jetemail-cli
+```
+
+### PowerShell installer (Windows)
+
+```powershell
+irm https://github.com/jetemail/jetemail-cli/releases/latest/download/install.ps1 | iex
+```
+
 ### Pre-built binaries
 
 Every release publishes both an archive (binary + `README` + `LICENSE-*`)
