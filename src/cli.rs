@@ -18,15 +18,6 @@ pub struct Cli {
     #[arg(long, global = true, env = "JETEMAIL_API_KEY", hide_env_values = true)]
     pub api_key: Option<String>,
 
-    /// Transactional key used for `email send` / `email batch` (overrides env/config).
-    #[arg(
-        long,
-        global = true,
-        env = "JETEMAIL_TRANSACTIONAL_KEY",
-        hide_env_values = true
-    )]
-    pub transactional_key: Option<String>,
-
     /// Force machine-readable JSON output (the default when stdout isn't a TTY).
     #[arg(long, global = true)]
     pub json: bool,
@@ -89,7 +80,15 @@ pub async fn run(cli: Cli) -> Result<()> {
         _ => {}
     }
 
-    let cfg = Resolved::from_layers(cli.api_key.clone(), cli.transactional_key.clone())?;
+    // The transactional key is only used by `email send` / `email batch`, so it
+    // now lives on those commands rather than as a global flag. Pull any CLI
+    // override from the matched command before resolving credentials.
+    let cli_transactional_key = match &cli.command {
+        Command::Email(cmd) => cmd.cli_transactional_key(),
+        Command::Send(args) => args.transactional_key.clone(),
+        _ => None,
+    };
+    let cfg = Resolved::from_layers(cli.api_key.clone(), cli_transactional_key)?;
     let client = ApiClient::new(cfg.clone())?;
 
     match cli.command {

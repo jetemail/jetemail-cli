@@ -4,7 +4,7 @@ use reqwest::Method;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::commands::inbound::account::{
     build_rule_body, build_rule_update_body, RuleBody, RuleUpdate, UuidArg,
 };
@@ -85,7 +85,7 @@ async fn run_filter(
             print_value(&v, out)
         }
         FilterAction::Get(a) => {
-            let path = format!("{}/{}", base_path, a.uuid);
+            let path = format!("{}/{}", base_path, enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -112,7 +112,7 @@ async fn run_filter(
         }
         FilterAction::Update(u) => {
             let body = build_rule_update_body(u)?;
-            let path = format!("{}/{}", base_path, u.uuid);
+            let path = format!("{}/{}", base_path, enc(&u.uuid));
             let v = client
                 .request_json::<(), _>(
                     Method::PATCH,
@@ -126,7 +126,7 @@ async fn run_filter(
             print_value(&v, out)
         }
         FilterAction::Delete(a) => {
-            let path = format!("{}/{}", base_path, a.uuid);
+            let path = format!("{}/{}", base_path, enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::DELETE, &path, Auth::Api, None, None, &[])
                 .await?;

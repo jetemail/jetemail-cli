@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::commands::util::{insert_opt, insert_vec, merge, parse_body_json, parse_field_pairs};
 use crate::output::{extract_rows, print_table, print_value, Column, OutputOpts};
 
@@ -183,7 +183,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             print_value(&v, out)
         }
         Action::Check(a) => {
-            let path = format!("/inbound/domains/{}/check", a.uuid);
+            let path = format!("/inbound/domains/{}/check", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::POST, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -229,7 +229,7 @@ fn build_add_body(args: &AddArgs) -> Result<Map<String, Value>> {
 async fn forward_rules(client: &ApiClient, fr: &ForwardRulesCmd, out: OutputOpts) -> Result<()> {
     match &fr.action {
         ForwardRulesAction::List(u) => {
-            let path = format!("/inbound/domains/{}/forward-rules", u.uuid);
+            let path = format!("/inbound/domains/{}/forward-rules", enc(&u.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -246,7 +246,7 @@ async fn forward_rules(client: &ApiClient, fr: &ForwardRulesCmd, out: OutputOpts
             insert_opt(&mut body, "localpart", args.localpart.clone());
             insert_opt(&mut body, "destination", args.destination.clone());
             insert_opt(&mut body, "active", args.active);
-            let path = format!("/inbound/domains/{}/forward-rules", args.uuid);
+            let path = format!("/inbound/domains/{}/forward-rules", enc(&args.uuid));
             let v = client
                 .request_json::<(), _>(
                     Method::POST,
@@ -260,7 +260,11 @@ async fn forward_rules(client: &ApiClient, fr: &ForwardRulesCmd, out: OutputOpts
             print_value(&v, out)
         }
         ForwardRulesAction::Get(p) => {
-            let path = format!("/inbound/domains/{}/forward-rules/{}", p.uuid, p.rule_uuid);
+            let path = format!(
+                "/inbound/domains/{}/forward-rules/{}",
+                enc(&p.uuid),
+                enc(&p.rule_uuid)
+            );
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -278,7 +282,8 @@ async fn forward_rules(client: &ApiClient, fr: &ForwardRulesCmd, out: OutputOpts
             insert_opt(&mut body, "active", args.active);
             let path = format!(
                 "/inbound/domains/{}/forward-rules/{}",
-                args.uuid, args.rule_uuid
+                enc(&args.uuid),
+                enc(&args.rule_uuid)
             );
             let v = client
                 .request_json::<(), _>(
@@ -293,7 +298,11 @@ async fn forward_rules(client: &ApiClient, fr: &ForwardRulesCmd, out: OutputOpts
             print_value(&v, out)
         }
         ForwardRulesAction::Delete(p) => {
-            let path = format!("/inbound/domains/{}/forward-rules/{}", p.uuid, p.rule_uuid);
+            let path = format!(
+                "/inbound/domains/{}/forward-rules/{}",
+                enc(&p.uuid),
+                enc(&p.rule_uuid)
+            );
             let v = client
                 .request_json::<(), ()>(Method::DELETE, &path, Auth::Api, None, None, &[])
                 .await?;

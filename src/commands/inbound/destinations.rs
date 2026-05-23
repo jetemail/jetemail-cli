@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::json;
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::output::{extract_rows, print_table, print_value, truncate_value, Column, OutputOpts};
 
 #[derive(Debug, Args)]
@@ -73,7 +73,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             print_value(&v, out)
         }
         Action::Resend(a) => {
-            let path = format!("/inbound/forward-destinations/{}/resend", a.uuid);
+            let path = format!("/inbound/forward-destinations/{}/resend", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::POST, &path, Auth::Api, None, None, &[])
                 .await?;

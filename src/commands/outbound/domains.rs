@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::commands::util::{insert_opt, insert_vec, merge, parse_body_json, parse_field_pairs};
 use crate::output::{extract_rows, print_table, print_value, Column, OutputOpts};
 
@@ -130,7 +130,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             print_value(&v, out)
         }
         Action::Check(a) => {
-            let path = format!("/outbound/domains/{}/check", a.uuid);
+            let path = format!("/outbound/domains/{}/check", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::POST, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -143,7 +143,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
 async fn settings(client: &ApiClient, cmd: &SettingsCmd, out: OutputOpts) -> Result<()> {
     match &cmd.action {
         SettingsAction::Get(a) => {
-            let path = format!("/outbound/domains/{}/settings", a.uuid);
+            let path = format!("/outbound/domains/{}/settings", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -160,7 +160,7 @@ async fn settings(client: &ApiClient, cmd: &SettingsCmd, out: OutputOpts) -> Res
             insert_vec(&mut body, "bccEmails", &a.bcc_emails);
             insert_opt(&mut body, "openTracking", a.open_tracking);
             insert_opt(&mut body, "clickTracking", a.click_tracking);
-            let path = format!("/outbound/domains/{}/settings", a.uuid);
+            let path = format!("/outbound/domains/{}/settings", enc(&a.uuid));
             let v = client
                 .request_json::<(), _>(
                     Method::POST,

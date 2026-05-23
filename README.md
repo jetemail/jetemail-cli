@@ -80,6 +80,11 @@ jetemail doctor                               # self-test if anything's off
 2. `JETEMAIL_API_KEY` / `JETEMAIL_TRANSACTIONAL_KEY` environment variables
 3. Saved config (`jetemail login` writes here)
 
+> **Avoid passing keys as flags on shared machines.** A key on the command line
+> is visible to other local users via `ps`/`/proc/<pid>/cmdline` and is written
+> to your shell history and CI logs. Prefer `jetemail login` or the environment
+> variables, which are not exposed on the process argument list.
+
 ```sh
 jetemail login              # interactive
 jetemail whoami             # show the active key (masked) and re-validate against the API
@@ -92,9 +97,9 @@ For non-interactive contexts (CI, scripts), set `JETEMAIL_API_KEY` and skip `log
 
 ```sh
 jetemail config path        # prints the location
-jetemail config show        # dumps the TOML
+jetemail config show        # dumps the TOML (secrets masked; --reveal for full)
 jetemail config set api_key api_xxxxxxxx
-jetemail config get api_key
+jetemail config get api_key # masked on a TTY; raw when piped, or with --reveal
 jetemail config unset api_key
 ```
 
@@ -104,7 +109,11 @@ Default locations (override with `JETEMAIL_CONFIG=…`):
 - Linux: `~/.config/jetemail/config.toml`
 - Windows: `%APPDATA%\JetEmail\jetemail\config\config.toml`
 
-The file is `chmod 600` on Unix.
+On Unix the file is created `0600` (owner read/write only) and its directory is
+tightened to `0700`. On Windows there is no portable `chmod`; the file inherits
+the per-user `%APPDATA%` ACLs, so protection there relies on standard Windows
+account isolation — avoid storing keys in config on a shared/roaming-profile
+Windows host.
 
 ## Output
 

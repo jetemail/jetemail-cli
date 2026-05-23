@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
@@ -31,6 +31,8 @@ pub enum Action {
 pub struct CreateArgs {
     #[arg(long)]
     pub username: Option<String>,
+    /// SMTP password. Pass `-` to read from stdin / prompt or `@file` to read
+    /// from a file, keeping the secret out of argv (visible in `ps`/shell history).
     #[arg(long)]
     pub password: Option<String>,
     #[arg(long = "allow-any-domain")]
@@ -49,12 +51,48 @@ pub struct CreateArgs {
     pub field: Vec<String>,
 }
 
+/// Resolve a `--password` value without forcing the secret onto argv:
+///   - `-`      → masked prompt on a TTY, otherwise read from stdin
+///   - `@path`  → read (trimmed) from a file
+///   - other    → used literally (discouraged: visible in `ps`/shell history)
+fn resolve_password(spec: &Option<String>) -> Result<Option<String>> {
+    let Some(spec) = spec else {
+        return Ok(None);
+    };
+    let value = if spec == "-" {
+        use std::io::IsTerminal;
+        if std::io::stdin().is_terminal() {
+            dialoguer::Password::new()
+                .with_prompt("SMTP password")
+                .interact()
+                .context("reading password")?
+        } else {
+            use std::io::Read;
+            let mut s = String::new();
+            std::io::stdin()
+                .read_to_string(&mut s)
+                .context("reading password from stdin")?;
+            s.trim_end_matches(['\n', '\r']).to_string()
+        }
+    } else if let Some(path) = spec.strip_prefix('@') {
+        std::fs::read_to_string(path)
+            .with_context(|| format!("reading password file {path}"))?
+            .trim_end_matches(['\n', '\r'])
+            .to_string()
+    } else {
+        spec.clone()
+    };
+    Ok(Some(value))
+}
+
 #[derive(Debug, Args)]
 pub struct UpdateArgs {
     #[arg(long = "current-username")]
     pub current_username: Option<String>,
     #[arg(long = "new-username")]
     pub new_username: Option<String>,
+    /// SMTP password. Pass `-` to read from stdin / prompt or `@file` to read
+    /// from a file, keeping the secret out of argv (visible in `ps`/shell history).
     #[arg(long)]
     pub password: Option<String>,
     #[arg(long = "allow-any-domain")]
@@ -123,7 +161,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
                 merge(&mut body, parse_field_pairs(&a.field)?);
             }
             insert_opt(&mut body, "username", a.username.clone());
-            insert_opt(&mut body, "password", a.password.clone());
+            insert_opt(&mut body, "password", resolve_password(&a.password)?);
             insert_opt(&mut body, "allowAnyDomain", a.allow_any_domain);
             insert_opt(&mut body, "allowAllDomains", a.allow_all_domains);
             insert_vec(&mut body, "approvedDomains", &a.approved_domains);
@@ -151,7 +189,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             }
             insert_opt(&mut body, "currentUsername", a.current_username.clone());
             insert_opt(&mut body, "newUsername", a.new_username.clone());
-            insert_opt(&mut body, "password", a.password.clone());
+            insert_opt(&mut body, "password", resolve_password(&a.password)?);
             insert_opt(&mut body, "allowAnyDomain", a.allow_any_domain);
             insert_opt(&mut body, "allowAllDomains", a.allow_all_domains);
             insert_vec(&mut body, "approvedDomains", &a.approved_domains);

@@ -4,7 +4,7 @@ use reqwest::Method;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::client::{args_to_pairs, ApiClient, Auth};
+use crate::client::{args_to_pairs, enc, ApiClient, Auth};
 use crate::commands::util::{insert_opt, insert_vec, merge, parse_body_json, parse_field_pairs};
 use crate::output::{print_value, OutputOpts};
 use crate::tui::logs::{LogKind, LogSource, TailOpts};
@@ -226,7 +226,7 @@ async fn run_rule(
             print_value(&v, out)
         }
         RuleAction::Get(a) => {
-            let path = format!("{}/{}", base_path, a.uuid);
+            let path = format!("{}/{}", base_path, enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -248,7 +248,7 @@ async fn run_rule(
         }
         RuleAction::Update(u) => {
             let body = build_rule_update_body(u)?;
-            let path = format!("{}/{}", base_path, u.uuid);
+            let path = format!("{}/{}", base_path, enc(&u.uuid));
             let v = client
                 .request_json::<(), _>(
                     Method::PATCH,
@@ -262,7 +262,7 @@ async fn run_rule(
             print_value(&v, out)
         }
         RuleAction::Delete(a) => {
-            let path = format!("{}/{}", base_path, a.uuid);
+            let path = format!("{}/{}", base_path, enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::DELETE, &path, Auth::Api, None, None, &[])
                 .await?;
