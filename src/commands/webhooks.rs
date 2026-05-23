@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::{Map, Value};
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::commands::util::{insert_opt, insert_vec, merge, parse_body_json, parse_field_pairs};
 use crate::output::{extract_rows, print_table, print_value, truncate_value, Column, OutputOpts};
 
@@ -152,7 +152,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             print_table(&v, out, &webhooks_columns(), extract_rows)
         }
         Action::Get(a) => {
-            let path = format!("/webhooks/{}", a.uuid);
+            let path = format!("/webhooks/{}", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -212,7 +212,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
             print_value(&v, out)
         }
         Action::Delete(a) => {
-            let path = format!("/webhooks/{}", a.uuid);
+            let path = format!("/webhooks/{}", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::DELETE, &path, Auth::Api, None, None, &[])
                 .await?;

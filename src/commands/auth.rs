@@ -106,8 +106,11 @@ async fn validate_key(base_url: &str, key: &str) -> Result<()> {
         return Ok(());
     }
     let body = resp.text().await.unwrap_or_default();
-    let snippet = if body.len() > 200 {
-        format!("{}…", &body[..200])
+    // Truncate on a char boundary (not a raw byte index) so a multi-byte
+    // codepoint at position 200 can't panic the slice.
+    let snippet = if body.chars().count() > 200 {
+        let head: String = body.chars().take(200).collect();
+        format!("{head}…")
     } else {
         body
     };

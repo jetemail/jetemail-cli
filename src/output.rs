@@ -45,8 +45,29 @@ pub fn print_value(value: &Value, opts: OutputOpts) -> Result<()> {
     print_json(value, opts)
 }
 
+/// Strip C0/C1 control bytes (keeping `\n` and `\t`) from server-controlled text,
+/// substituting the Unicode replacement char. Prevents embedded ANSI/OSC escape
+/// sequences in API responses (CSV exports, error bodies, …) from spoofing output,
+/// moving the cursor, or driving clipboard/hyperlink escapes when printed to a
+/// terminal. Callers apply this only for TTY output so piped data stays faithful.
+pub fn sanitize_tty(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '\n' | '\t' => c,
+            c if c.is_control() => '\u{FFFD}',
+            c => c,
+        })
+        .collect()
+}
+
 pub fn print_text(text: &str) {
-    print!("{text}");
+    // Only sanitize when writing to a terminal; piped output (e.g. `suppression
+    // export > file.csv`) must stay byte-faithful.
+    if std::io::stdout().is_terminal() {
+        print!("{}", sanitize_tty(text));
+    } else {
+        print!("{text}");
+    }
 }
 
 /// Render a list-of-rows response as a table when in TTY view, or fall back to

@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use reqwest::Method;
 use serde_json::{Map, Value};
 
-use crate::client::{ApiClient, Auth};
+use crate::client::{enc, ApiClient, Auth};
 use crate::commands::util::{insert_opt, insert_vec, merge, parse_body_json, parse_field_pairs};
 use crate::output::{print_value, OutputOpts};
 
@@ -58,7 +58,7 @@ pub struct UpdateArgs {
 pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
     match &cmd.action {
         Action::Get(a) => {
-            let path = format!("/inbound/settings/{}", a.uuid);
+            let path = format!("/inbound/settings/{}", enc(&a.uuid));
             let v = client
                 .request_json::<(), ()>(Method::GET, &path, Auth::Api, None, None, &[])
                 .await?;
@@ -94,7 +94,7 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
                 "webhook_auth_header",
                 a.webhook_auth_header.clone(),
             );
-            let path = format!("/inbound/settings/{}", a.uuid);
+            let path = format!("/inbound/settings/{}", enc(&a.uuid));
             let v = client
                 .request_json::<(), _>(
                     Method::PATCH,

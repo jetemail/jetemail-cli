@@ -1,9 +1,37 @@
 use anyhow::{anyhow, Context, Result};
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use reqwest::{header, Client as Http, Method, Response, StatusCode};
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::config::Resolved;
+
+/// Characters percent-encoded inside a single URL path segment so a user/server
+/// -supplied id/uuid/username can't reshape the request path — i.e. inject a
+/// query (`?`) or fragment (`#`), add `/` separators, or smuggle `%2e%2e`
+/// traversal. Unreserved chars (alnum, `-`, `.`, `_`, `~`) are left intact so a
+/// normal UUID/domain round-trips unchanged.
+const PATH_SEGMENT: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'%')
+    .add(b'/')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'\\')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'|')
+    .add(b'}');
+
+/// Percent-encode a dynamic path segment for safe interpolation into a request
+/// path. Returns a `Display` adapter so it drops straight into `format!`.
+pub fn enc(segment: &str) -> impl std::fmt::Display + '_ {
+    utf8_percent_encode(segment, PATH_SEGMENT)
+}
 
 /// Convert a Serialize-able query struct into a flat list of key=value pairs,
 /// dropping any `None` Option fields. The pairs are URL-decoded so they round-trip
@@ -40,6 +68,11 @@ impl ApiClient {
     pub fn new(cfg: Resolved) -> Result<Self> {
         let http = Http::builder()
             .user_agent(format!("jetemail-cli/{}", env!("CARGO_PKG_VERSION")))
+            // The JetEmail API does not 3xx-redirect normal calls. Disable
+            // redirect-following explicitly so the bearer token can never be
+            // replayed to a different host via a redirect (rather than relying on
+            // reqwest's implicit cross-host header-stripping default).
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .context("building HTTP client")?;
         let base_url = cfg.base_url.trim_end_matches('/').to_string();

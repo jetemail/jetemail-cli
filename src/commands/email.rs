@@ -19,6 +19,18 @@ pub struct Cmd {
     pub action: Action,
 }
 
+impl Cmd {
+    /// CLI-supplied transactional-key override, if any. Lives on the
+    /// `send` / `batch` args rather than as a global flag, since those are the
+    /// only commands that authenticate with the transactional key.
+    pub fn cli_transactional_key(&self) -> Option<String> {
+        match &self.action {
+            Action::Send(a) => a.transactional_key.clone(),
+            Action::Batch(a) => a.transactional_key.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Action {
     /// POST /email — Send a single transactional email.
@@ -74,6 +86,9 @@ pub struct SendArgs {
     /// Extra body field `key=value` (value parsed as JSON, falls back to string).
     #[arg(long = "field", value_name = "KEY=VALUE")]
     pub field: Vec<String>,
+    /// Transactional key for this send (overrides env/config).
+    #[arg(long, env = "JETEMAIL_TRANSACTIONAL_KEY", hide_env_values = true)]
+    pub transactional_key: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -85,6 +100,9 @@ pub struct BatchArgs {
     /// Idempotency-Key header.
     #[arg(long = "idempotency-key")]
     pub idempotency_key: Option<String>,
+    /// Transactional key for this batch (overrides env/config).
+    #[arg(long, env = "JETEMAIL_TRANSACTIONAL_KEY", hide_env_values = true)]
+    pub transactional_key: Option<String>,
 }
 
 pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
@@ -92,6 +110,16 @@ pub async fn run(client: &ApiClient, cmd: &Cmd, out: OutputOpts) -> Result<()> {
         Action::Send(args) => send(client, args, out).await,
         Action::Batch(args) => batch(client, args, out).await,
     }
+}
+
+/// Validate the documented 1–256-char `Idempotency-Key` constraint client-side
+/// for a clear error (reqwest would otherwise reject only invalid header *bytes*).
+fn validate_idempotency_key(k: &str) -> Result<()> {
+    let len = k.chars().count();
+    if !(1..=256).contains(&len) {
+        anyhow::bail!("--idempotency-key must be 1–256 characters (got {len})");
+    }
+    Ok(())
 }
 
 async fn send(client: &ApiClient, args: &SendArgs, out: OutputOpts) -> Result<()> {
@@ -197,6 +225,7 @@ async fn send(client: &ApiClient, args: &SendArgs, out: OutputOpts) -> Result<()
 
     let mut headers: Vec<(&str, &str)> = Vec::new();
     if let Some(k) = args.idempotency_key.as_deref() {
+        validate_idempotency_key(k)?;
         headers.push(("Idempotency-Key", k));
     }
 
@@ -298,6 +327,7 @@ async fn batch(client: &ApiClient, args: &BatchArgs, out: OutputOpts) -> Result<
 
     let mut headers: Vec<(&str, &str)> = Vec::new();
     if let Some(k) = args.idempotency_key.as_deref() {
+        validate_idempotency_key(k)?;
         headers.push(("Idempotency-Key", k));
     }
 

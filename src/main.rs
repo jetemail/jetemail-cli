@@ -9,6 +9,7 @@ mod tui;
 mod version_check;
 
 use clap::Parser;
+use std::io::IsTerminal;
 
 #[tokio::main]
 async fn main() {
@@ -22,7 +23,14 @@ async fn main() {
 
     let result = cli::run(cli).await;
     if let Err(err) = &result {
-        eprintln!("error: {err:#}");
+        // The error chain can embed a verbatim server response body; strip
+        // terminal escapes when writing to a TTY (see output::sanitize_tty).
+        let msg = format!("{err:#}");
+        if std::io::stderr().is_terminal() {
+            eprintln!("error: {}", output::sanitize_tty(&msg));
+        } else {
+            eprintln!("error: {msg}");
+        }
     }
 
     if nag {

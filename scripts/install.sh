@@ -28,6 +28,27 @@ err() { printf '\033[31merror:\033[0m %s\n' "$1" >&2; exit 1; }
 info() { printf '\033[32m==>\033[0m %s\n' "$1"; }
 warn() { printf '\033[33mnote:\033[0m %s\n' "$1"; }
 
+# Reject an INSTALL_DIR containing shell metacharacters or newlines before it is
+# ever interpolated into a shell-rc PATH line (otherwise a hostile value would
+# execute in every future login shell).
+case "$INSTALL_DIR" in
+    *'$'* | *'`'* | *'"'* | *"'"* | *';'* | *'&'* | *'|'* | *'<'* | *'>'* | *'('* | *')'* | *'
+'*)
+        err "JETEMAIL_INSTALL_DIR contains unsafe characters: $INSTALL_DIR" ;;
+esac
+
+# Compute the SHA-256 of $1 using whichever tool is present (Linux: sha256sum,
+# macOS: shasum). Prints the bare hex digest.
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        err "no sha256 tool (sha256sum or shasum) found to verify the download"
+    fi
+}
+
 case "$(uname -s)" in
     Darwin)
         case "$(uname -m)" in
@@ -51,15 +72,33 @@ else
         | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
     [ -n "$tag" ] || err "could not determine latest release"
 fi
+
+# Validate the tag is a plain semver before interpolating it into URLs — a
+# poisoned API response or hostile JETEMAIL_VERSION can't redirect the download.
+echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.+-][0-9A-Za-z.-]+)?$' \
+    || err "unexpected version tag: $tag"
 version="${tag#v}"
 
 asset="${BIN}-${version}-${target}"
 url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
+sums_url="https://github.com/${REPO}/releases/download/${tag}/SHA256SUMS"
 
 info "Downloading $asset"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL "$url" -o "$tmp/$BIN" || err "download failed: $url"
+
+# Verify the binary against the release's published SHA256SUMS before trusting
+# it — fail closed if the checksum file is missing, omits this asset, or differs.
+curl -fsSL "$sums_url" -o "$tmp/SHA256SUMS" \
+    || err "could not fetch checksums: $sums_url"
+expected=$(awk -v f="$asset" '$2==f || $2=="*"f {print $1; exit}' "$tmp/SHA256SUMS")
+[ -n "$expected" ] || err "no checksum listed for $asset in SHA256SUMS"
+actual=$(sha256_of "$tmp/$BIN")
+[ "$expected" = "$actual" ] \
+    || err "checksum mismatch for $asset (expected $expected, got $actual)"
+info "Verified SHA-256 checksum"
+
 chmod +x "$tmp/$BIN"
 
 mkdir -p "$INSTALL_DIR"

@@ -2,6 +2,22 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{Map, Value};
 use std::path::Path;
 
+/// Upper bound on a single `@file` / stdin read or attachment, to avoid loading
+/// an unbounded (or `/dev/zero`-style) input entirely into memory.
+const MAX_INPUT_BYTES: u64 = 25 * 1024 * 1024;
+
+fn ensure_file_within_cap(path: &str) -> Result<()> {
+    if let Ok(meta) = std::fs::metadata(path) {
+        if meta.is_file() && meta.len() > MAX_INPUT_BYTES {
+            bail!(
+                "{path} is {} bytes, exceeding the {MAX_INPUT_BYTES}-byte input limit",
+                meta.len()
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Read a file or stdin and return its content as a string.
 ///
 /// `spec` is the user-supplied value:
@@ -12,11 +28,18 @@ pub fn read_input(spec: &str) -> Result<String> {
     if spec == "-" {
         use std::io::Read;
         let mut buf = String::new();
+        // `take` one byte past the cap so an over-limit stream is detectable
+        // rather than silently truncated.
         std::io::stdin()
+            .take(MAX_INPUT_BYTES + 1)
             .read_to_string(&mut buf)
             .context("reading stdin")?;
+        if buf.len() as u64 > MAX_INPUT_BYTES {
+            bail!("stdin input exceeds the {MAX_INPUT_BYTES}-byte limit");
+        }
         Ok(buf)
     } else if let Some(path) = spec.strip_prefix('@') {
+        ensure_file_within_cap(path)?;
         std::fs::read_to_string(path).with_context(|| format!("reading file {path}"))
     } else {
         Ok(spec.to_string())
@@ -85,6 +108,7 @@ pub fn attachment_from_spec(spec: &str) -> Result<Value> {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string());
+        ensure_file_within_cap(path)?;
         let bytes = std::fs::read(p).with_context(|| format!("reading attachment {path}"))?;
         let mime = mime_guess::from_path(p)
             .first_or_octet_stream()

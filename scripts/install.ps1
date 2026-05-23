@@ -30,19 +30,55 @@ if ($env:JETEMAIL_VERSION) {
         Fail "could not determine latest release: $_"
     }
 }
+# Validate the tag is a plain semver before interpolating it into URLs.
+if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+([.+-][0-9A-Za-z.-]+)?$') {
+    Fail "unexpected version tag: $tag"
+}
 $version = $tag.TrimStart('v')
 
 $asset = "jetemail-$version-x86_64-pc-windows-msvc.exe"
 $url = "https://github.com/$Repo/releases/download/$tag/$asset"
+$sumsUrl = "https://github.com/$Repo/releases/download/$tag/SHA256SUMS"
 
 Info "Downloading $asset"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $dest = Join-Path $InstallDir $Bin
+
+# Download to a temp file and verify its SHA-256 against the release's published
+# SHA256SUMS before moving it into place — fail closed on any mismatch so a
+# tampered binary is never installed.
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("jetemail-" + [System.Guid]::NewGuid().ToString() + ".exe")
+$sumsTmp = "$tmp.SHA256SUMS"
 try {
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+    Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
 } catch {
     Fail "download failed: $url`n$_"
 }
+try {
+    Invoke-WebRequest -Uri $sumsUrl -OutFile $sumsTmp -UseBasicParsing
+} catch {
+    Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+    Fail "could not fetch checksums: $sumsUrl`n$_"
+}
+$expected = Get-Content $sumsTmp | ForEach-Object {
+    $p = $_ -split '\s+', 2
+    if ($p.Count -eq 2 -and ($p[1].TrimStart('*') -eq $asset)) { $p[0] }
+} | Select-Object -First 1
+$actual = (Get-FileHash -Algorithm SHA256 -Path $tmp).Hash
+Remove-Item -Force $sumsTmp -ErrorAction SilentlyContinue
+if (-not $expected) {
+    Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+    Fail "no checksum listed for $asset in SHA256SUMS"
+}
+# PowerShell string comparison is case-insensitive by default (sha256sum is
+# lowercase, Get-FileHash uppercase).
+if ($actual -ne $expected.Trim()) {
+    Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+    Fail "checksum mismatch for $asset (expected $($expected.Trim()), got $actual)"
+}
+Info "Verified SHA-256 checksum"
+
+Move-Item -Force $tmp $dest
 Info "Installed to $dest"
 
 # Persist InstallDir on the user PATH if missing.
